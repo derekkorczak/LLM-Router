@@ -3,14 +3,15 @@ services:
   router:
     build: .
     container_name: llm-router
-    network_mode: host  # Bind to 127.0.0.1 only
-    volumes:
-      - ./catalog:/app/catalog
+    ports:
+      - "3000:3000"
     environment:
       - MERGE_API_KEY=${MERGE_API_KEY}
       - BIND_HOST=127.0.0.1
       - PORT=3000
       - CATALOG_DIR=/app/catalog
+    volumes:
+      - ./catalog:/app/catalog
     restart: unless-stopped
     command: ["npm", "run", "start"]
     healthcheck:
