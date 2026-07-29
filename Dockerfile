@@ -1,7 +1,7 @@
 # Stage 1: Build Environment
 FROM node:20-alpine AS builder
 WORKDIR /app
-RUN npm install --only=production --no-fund --no-audit --verbose && echo "Dependencies installed"
+RUN npm install --only=production --no-fund --no-audit --verbose || exit 1
 COPY package.json .
 COPY package-lock.json .
 COPY . .
