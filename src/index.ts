@@ -1,74 +1,100 @@
-import fastify from 'fastify';
+import Fastify from 'fastify';
 import pino from 'pino';
-import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { loadConfig } from './config.js';
+import { CatalogStore } from './catalog.js';
+import { GatewayClient } from './gateway.js';
+import { registerRoutes } from './routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Initialize logger
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
+  name: 'llm-router',
 });
 
-// Initialize Fastify
-const app = fastify({
-  logger: logger,
+const configPath = process.env.CONFIG_PATH || join(__dirname, '..', 'router.config.json');
+const MERGE_API_KEY = process.env.MERGE_API_KEY || '';
+const CATALOG_DIR = process.env.CATALOG_DIR || join(__dirname, '..', 'catalog');
+const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
+const PORT = parseInt(process.env.PORT || '3000', 10);
+const REFRESH_INTERVAL_MS = parseInt(process.env.CATALOG_REFRESH_INTERVAL_MS || '86400000', 10);
+
+let config;
+try {
+  config = loadConfig(configPath);
+  logger.info({ path: configPath }, 'Config loaded');
+} catch (err) {
+  logger.fatal({ err }, 'Failed to load config');
+  process.exit(1);
+}
+
+if (!MERGE_API_KEY) {
+  logger.warn('MERGE_API_KEY is not set. Catalog fetch and gateway execution will fail.');
+}
+
+const catalogStore = new CatalogStore(CATALOG_DIR, MERGE_API_KEY, logger);
+const loaded = catalogStore.loadLatest();
+
+const gatewayClient = new GatewayClient(MERGE_API_KEY, logger);
+
+const app = Fastify({ logger: false });
+
+app.addHook('onRequest', (request, _reply, done) => {
+  logger.debug({ method: request.method, url: request.url }, 'Incoming request');
+  done();
 });
 
-// Health check endpoints
-app.get('/healthz', async (request, reply) => {
-  return { status: 'ok' };
-});
+registerRoutes(app, catalogStore, gatewayClient, config, logger);
 
-app.get('/readyz', async (request, reply) => {
-  return { status: 'ready' };
-});
+async function refreshCatalog(): Promise<void> {
+  if (!MERGE_API_KEY) {
+    logger.warn('Skipping catalog refresh: MERGE_API_KEY not set');
+    return;
+  }
 
-// Placeholder for chat completions endpoint
-app.post('/v1/chat/completions', async (request, reply) => {
-  return {
-    id: 'chatcmpl-placeholder',
-    object: 'chat.completion',
-    created: Date.now(),
-    model: 'placeholder',
-    choices: [{
-      index: 0,
-      message: {
-        role: 'assistant',
-        content: 'Router is running but not fully configured yet'
-      },
-      finish_reason: 'stop'
-    }]
-  };
-});
-
-// Get models endpoint
-app.get('/v1/models', async (request, reply) => {
-  return {
-    object: 'list',
-    data: [
-      { id: 'auto', object: 'model' },
-      { id: 'auto:coding', object: 'model' },
-      { id: 'auto:vision', object: 'model' },
-      { id: 'auto:bulk', object: 'model' }
-    ]
-  };
-});
-
-// Start the server
-const start = async () => {
   try {
-    const host = process.env.BIND_HOST || '0.0.0.0';
-    const port = parseInt(process.env.PORT || '3000');
-    
-    await app.listen({ host, port });
-    logger.info(`Server running on ${host}:${port}`);
+    await catalogStore.refresh();
+    logger.info('Background catalog refresh complete');
   } catch (err) {
-    logger.error(err);
+    logger.error({ err }, 'Background catalog refresh failed');
+  }
+}
+
+async function start(): Promise<void> {
+  if (!loaded) {
+    logger.info('No catalog snapshot found, performing initial fetch...');
+    await refreshCatalog();
+  } else {
+    logger.info('Catalog loaded from snapshot, refreshing in background');
+    refreshCatalog().catch(err => logger.error({ err }, 'Background refresh error'));
+  }
+
+  try {
+    await app.listen({ host: BIND_HOST, port: PORT });
+    logger.info(`Server listening on ${BIND_HOST}:${PORT}`);
+  } catch (err) {
+    logger.fatal({ err }, 'Failed to start server');
     process.exit(1);
   }
-};
+}
 
 start();
+
+setInterval(() => {
+  refreshCatalog().catch(err => logger.error({ err }, 'Scheduled refresh error'));
+}, REFRESH_INTERVAL_MS);
+
+process.on('SIGTERM', async () => {
+  logger.info('Shutting down');
+  await app.close();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  logger.info('Shutting down');
+  await app.close();
+  process.exit(0);
+});

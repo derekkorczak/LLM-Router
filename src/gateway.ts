@@ -1,0 +1,119 @@
+import type { Logger } from 'pino';
+import type { RouteEntry } from './catalog.js';
+
+export interface ExecutionResult {
+  model: string;
+  vendor: string;
+  tier: string;
+  output: string;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cost: number | null;
+  };
+}
+
+export class GatewayError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number | null,
+    public retryable: boolean,
+    public stripParams: boolean = false,
+  ) {
+    super(message);
+    this.name = 'GatewayError';
+  }
+}
+
+export class GatewayClient {
+  private apiKey: string;
+  private logger: Logger;
+
+  constructor(apiKey: string, logger: Logger) {
+    this.apiKey = apiKey;
+    this.logger = logger;
+  }
+
+  async execute(
+    candidate: RouteEntry,
+    body: any,
+    options: { stripSampling?: boolean } = {},
+  ): Promise<ExecutionResult> {
+    const requestBody: any = {
+      ...body,
+      model: candidate.model,
+      vendor: candidate.vendor,
+      service_tier: candidate.tier,
+      service_tier_fallback: true,
+      include_routing_metadata: true,
+    };
+
+    if (options.stripSampling) {
+      delete requestBody.temperature;
+      delete requestBody.top_p;
+    }
+
+    const isStreaming = body.stream === true;
+
+    const url = isStreaming
+      ? 'https://api-gateway.merge.dev/v1/openai/chat/completions'
+      : 'https://api-gateway.merge.dev/v1/responses';
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!res.ok) {
+      const errorBody = await res.text().catch(() => '');
+      const retryable = this.isRetryable(res.status, errorBody);
+      const stripParams = this.shouldStripParams(res.status, errorBody);
+
+      throw new GatewayError(
+        `Merge API ${res.status}: ${errorBody.slice(0, 200)}`,
+        res.status,
+        retryable,
+        stripParams,
+      );
+    }
+
+    const data = await res.json();
+
+    return {
+      model: data.model || candidate.model,
+      vendor: data.vendor || candidate.vendor,
+      tier: data.service_tier || candidate.tier,
+      output: typeof data.output === 'string' ? data.output : JSON.stringify(data.output || data.choices),
+      usage: {
+        inputTokens: data.usage?.input_tokens ?? 0,
+        outputTokens: data.usage?.output_tokens ?? 0,
+        totalTokens: data.usage?.total_tokens ?? 0,
+        cost: data.usage?.cost ?? null,
+      },
+    };
+  }
+
+  private isRetryable(status: number, body: string): boolean {
+    if (status === 429) return true;
+    if (status >= 500) return true;
+    if (status === 400) {
+      const lower = body.toLowerCase();
+      if (lower.includes('temperature') || lower.includes('top_p')) return true;
+      if (lower.includes('unsupported') || lower.includes('not supported')) return true;
+      if (lower.includes('capability') || lower.includes('feature')) return true;
+    }
+    if (status === 401 || status === 403) return false;
+    return false;
+  }
+
+  private shouldStripParams(status: number, body: string): boolean {
+    if (status !== 400) return false;
+    const lower = body.toLowerCase();
+    return lower.includes('temperature') || lower.includes('top_p');
+  }
+}

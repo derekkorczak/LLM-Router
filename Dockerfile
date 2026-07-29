@@ -3,19 +3,22 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package.json ./
+COPY package.json ./package.json
+COPY package-lock.json ./package-lock.json
 
-# Install dependencies (use npm install since we don't have package-lock.json)
-RUN npm install --production
+# Install all dependencies (including dev for TypeScript build)
+RUN npm install
 
-# Install TypeScript for build
-RUN npm install --save-dev typescript
-
-# Copy source code
-COPY . .
+# Copy source code and config
+COPY tsconfig.json ./
+COPY router.config.json ./
+COPY src/ ./src/
 
 # Build the application
 RUN npm run build
+
+# Prune dev dependencies for production
+RUN npm prune --production
 
 # Stage 2: Runtime Environment
 FROM node:20-alpine
@@ -24,7 +27,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV CATALOG_DIR=/app/catalog
 
-# Copy node_modules from builder
+# Copy production node_modules from builder
 COPY --from=builder /app/node_modules ./node_modules
 
 # Copy built files
@@ -38,5 +41,4 @@ RUN mkdir -p /app/catalog
 
 EXPOSE 3000
 
-# Run the compiled JavaScript directly with node (no npm needed)
 CMD ["node", "dist/index.js"]
