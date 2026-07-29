@@ -80,16 +80,52 @@ export function registerRoutes(
     let finalResult: any = null;
     let attempts = 0;
 
+    logger.info({
+      profile: model,
+      rankedCount: ranked.length,
+      maxAttempts,
+      top3: ranked.slice(0, 3).map(r => ({
+        rank: r.rank,
+        model: `${r.route.model}@${r.route.vendor}`,
+        tier: r.route.tier,
+        inputPrice: r.route.inputPerMillion,
+        outputPrice: r.route.outputPerMillion,
+        estimatedCost: r.estimatedCost.toFixed(8),
+      })),
+    }, 'Starting candidate walk');
+
     for (let i = 0; i < Math.min(ranked.length, maxAttempts); i++) {
-      if (Date.now() > deadline) break;
+      if (Date.now() > deadline) {
+        logger.warn({ elapsed: Date.now() - (Date.now() - config.requestDeadlineMs) }, 'Request deadline exceeded');
+        break;
+      }
 
       const candidate = ranked[i].route;
       let stripSampling = false;
       attempts++;
 
+      logger.info({
+        attempt: attempts,
+        rank: ranked[i].rank,
+        candidate: `${candidate.model}@${candidate.vendor}`,
+        tier: candidate.tier,
+        inputPrice: candidate.inputPerMillion,
+        outputPrice: candidate.outputPerMillion,
+        estimatedCost: ranked[i].estimatedCost.toFixed(8),
+        contextWindow: candidate.contextWindow,
+        maxOutputTokens: candidate.maxOutputTokens,
+      }, `Attempt ${attempts}/${maxAttempts}: ${candidate.model}@${candidate.vendor}`);
+
       try {
         const plan = { stripSampling };
         const result = await gatewayClient.execute(candidate, body, plan);
+        logger.info({
+          candidate: `${candidate.model}@${candidate.vendor}`,
+          attempt: attempts,
+          actualCost: result.usage.cost,
+          inputTokens: result.usage.inputTokens,
+          outputTokens: result.usage.outputTokens,
+        }, 'Candidate succeeded');
         finalResult = {
           ...result,
           headers: {
@@ -100,6 +136,7 @@ export function registerRoutes(
             'X-Router-Actual-Cost': result.usage.cost != null ? result.usage.cost.toString() : 'unknown',
             'X-Router-Attempts': attempts.toString(),
             'X-Router-Candidates-Considered': ranked.length.toString(),
+            'X-Router-Catalog-Age-Seconds': Math.floor((Date.now() - catalogStore.fetchedAt.getTime()) / 1000).toString(),
           },
         };
         break;

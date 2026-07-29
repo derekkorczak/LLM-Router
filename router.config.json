@@ -2,7 +2,7 @@
   "tokenSafetyMargin": 0.15,
   "imageTokenAllowance": 1200,
   "documentTokenAllowance": 3000,
-  "maxAttempts": 3,
+  "maxAttempts": 10,
   "requestDeadlineMs": 120000,
   "refreshAbortDropRatio": 0.05,
   "profiles": {
