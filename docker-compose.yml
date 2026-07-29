@@ -4,7 +4,7 @@ services:
     build: .
     container_name: llm-router
     ports:
-      - "3001:3000"
+      - "3002:3000"
     environment:
       - MERGE_API_KEY=${MERGE_API_KEY}
       - BIND_HOST=127.0.0.1
