@@ -10,7 +10,7 @@
       "expectedOutputTokens": 1500,
       "allowFlex": false,
       "deny": [],
-      "minInputPerMillion": 0
+      "minInputPerMillion": 0.10
     },
     "coding": {
       "expectedOutputTokens": 4000,
