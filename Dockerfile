@@ -1,7 +1,7 @@
 # Stage 1: Build Environment
 FROM node:20-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache curl bash && curl -sL https://raw.githubusercontent.com/npm/cli/master/bin/install.sh | bash && npm install --only=production --verbose && echo "Dependencies installed" && COPY package.json . && COPY package-lock.json . && COPY . . && npm run build
+RUN apk add --no-cache curl && curl -sL https://unpkg.com/npm@latest/dist/cnpm/bin/cnpm.js -o /usr/local/bin/npm && chmod +x /usr/local/bin/npm && npm install --only=production && echo "Dependencies installed" && COPY package.json . && COPY package-lock.json . && COPY . . && npm run build
 
 # Stage 2: Runtime Environment
 FROM node:20-alpine
