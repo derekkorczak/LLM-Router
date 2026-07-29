@@ -148,7 +148,25 @@ export function registerRoutes(
       servedTier: finalResult.tier,
     }, 'Request served');
 
-    return finalResult;
+    return {
+      id: `chatcmpl-${Date.now()}`,
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model,
+      choices: [{
+        index: 0,
+        message: {
+          role: 'assistant',
+          content: finalResult.output,
+        },
+        finish_reason: 'stop',
+      }],
+      usage: {
+        prompt_tokens: finalResult.usage.inputTokens,
+        completion_tokens: finalResult.usage.outputTokens,
+        total_tokens: finalResult.usage.totalTokens,
+      },
+    };
   });
 
   app.get('/admin/routes', async (_req, reply) => {
@@ -243,7 +261,7 @@ async function forwardToMerge(
   const passthrough: RouteEntry = {
     model: body.model,
     provider: '',
-    vendor: body.vendor || '',
+    vendor: body.vendor || body.vendors?.[0] || '',
     tier: body.service_tier || 'standard',
     contextWindow: 999999,
     maxOutputTokens: 999999,
@@ -263,7 +281,22 @@ async function forwardToMerge(
 
   try {
     const result = await gatewayClient.execute(passthrough, body);
-    return result;
+    return {
+      id: `chatcmpl-${Date.now()}`,
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model: body.model,
+      choices: [{
+        index: 0,
+        message: { role: 'assistant', content: result.output },
+        finish_reason: 'stop',
+      }],
+      usage: {
+        prompt_tokens: result.usage.inputTokens,
+        completion_tokens: result.usage.outputTokens,
+        total_tokens: result.usage.totalTokens,
+      },
+    };
   } catch (err: any) {
     logger.error({ err }, 'Forward to Merge failed');
     return reply.code(502).send({ error: err.message });

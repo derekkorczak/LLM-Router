@@ -43,22 +43,21 @@ export class GatewayClient {
     const requestBody: any = {
       ...body,
       model: candidate.model,
-      vendor: candidate.vendor,
       service_tier: candidate.tier,
       service_tier_fallback: true,
       include_routing_metadata: true,
     };
+
+    if (candidate.vendor) {
+      requestBody.vendors = [candidate.vendor];
+    }
 
     if (options.stripSampling) {
       delete requestBody.temperature;
       delete requestBody.top_p;
     }
 
-    const isStreaming = body.stream === true;
-
-    const url = isStreaming
-      ? 'https://api-gateway.merge.dev/v1/openai/chat/completions'
-      : 'https://api-gateway.merge.dev/v1/responses';
+  const url = 'https://api-gateway.merge.dev/v1/openai/chat/completions';
 
     const res = await fetch(url, {
       method: 'POST',
@@ -84,14 +83,17 @@ export class GatewayClient {
 
     const data: any = await res.json();
 
+    const choice = data.choices?.[0];
+    const content = choice?.message?.content ?? '';
+
     return {
       model: data.model || candidate.model,
-      vendor: data.vendor || candidate.vendor,
-      tier: data.service_tier || candidate.tier,
-      output: typeof data.output === 'string' ? data.output : JSON.stringify(data.output || data.choices),
+      vendor: candidate.vendor,
+      tier: candidate.tier,
+      output: content,
       usage: {
-        inputTokens: data.usage?.input_tokens ?? 0,
-        outputTokens: data.usage?.output_tokens ?? 0,
+        inputTokens: data.usage?.prompt_tokens ?? 0,
+        outputTokens: data.usage?.completion_tokens ?? 0,
         totalTokens: data.usage?.total_tokens ?? 0,
         cost: data.usage?.cost ?? null,
       },
