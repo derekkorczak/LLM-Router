@@ -1,11 +1,14 @@
 # Stage 1: Build Environment
 FROM node:20-alpine AS builder
 WORKDIR /app
-RUN npm install --only=production --no-fund --no-audit --verbose || exit 1
-COPY package.json .
-COPY package-lock.json .
-COPY . .
-RUN npm run build
+RUN apk add --no-cache curl && 
+    curl -sL https://raw.githubusercontent.com/npm/cli/master/bin/install.sh | bash && 
+    npm install --only=production --no-fund --no-audit --verbose && 
+    echo "Dependencies installed" && 
+    COPY package.json .
+    COPY package-lock.json .
+    COPY . .
+    npm run build
 
 # Stage 2: Runtime Environment
 FROM node:20-alpine
