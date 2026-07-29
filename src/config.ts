@@ -6,6 +6,7 @@ const ProfileSchema = z.object({
   allowFlex: z.boolean().default(false),
   deny: z.array(z.string()).default([]),
   minInputPerMillion: z.number().default(0),
+  minOutputPerMillion: z.number().default(0),
   requires: z.array(z.string()).default([]),
 });
 
@@ -25,6 +26,7 @@ const ConfigSchema = z.object({
       allowFlex: false,
       deny: [],
       minInputPerMillion: 0,
+      minOutputPerMillion: 0,
       requires: [],
     },
   }),

@@ -10,25 +10,31 @@
       "expectedOutputTokens": 1500,
       "allowFlex": false,
       "deny": [],
-      "minInputPerMillion": 0.10
+      "minInputPerMillion": 0.10,
+      "minOutputPerMillion": 0.01
     },
     "coding": {
       "expectedOutputTokens": 4000,
       "requires": ["tool_calling", "reasoning"],
       "allowFlex": false,
       "deny": [],
-      "minInputPerMillion": 0.15
+      "minInputPerMillion": 0.15,
+      "minOutputPerMillion": 0.01
     },
     "vision": {
       "expectedOutputTokens": 1000,
       "requires": ["image_input"],
       "allowFlex": false,
-      "minInputPerMillion": 0
+      "deny": [],
+      "minInputPerMillion": 0,
+      "minOutputPerMillion": 0.01
     },
     "bulk": {
       "expectedOutputTokens": 800,
       "allowFlex": false,
-      "minInputPerMillion": 0
+      "deny": [],
+      "minInputPerMillion": 0,
+      "minOutputPerMillion": 0.01
     }
   }
 }

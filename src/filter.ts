@@ -103,7 +103,9 @@ interface EliminationCounts {
   contextWindow: number;
   maxOutputTokens: number;
   denyGlob: number;
-  priceFloor: number;
+  priceFloorInput: number;
+  priceFloorOutput: number;
+  zeroOutputPrice: number;
   tier: number;
   passed: number;
 }
@@ -114,7 +116,9 @@ function emptyCounts(): EliminationCounts {
     contextWindow: 0,
     maxOutputTokens: 0,
     denyGlob: 0,
-    priceFloor: 0,
+    priceFloorInput: 0,
+    priceFloorOutput: 0,
+    zeroOutputPrice: 0,
     tier: 0,
     passed: 0,
   };
@@ -160,7 +164,15 @@ export function filterAndRank(
     }
 
     if (profile.minInputPerMillion > 0 && route.inputPerMillion < profile.minInputPerMillion) {
-      counts.priceFloor++; continue;
+      counts.priceFloorInput++; continue;
+    }
+
+    if (profile.minOutputPerMillion > 0 && route.outputPerMillion < profile.minOutputPerMillion) {
+      counts.priceFloorOutput++; continue;
+    }
+
+    if (route.outputPerMillion <= 0) {
+      counts.zeroOutputPrice++; continue;
     }
 
     if (route.tier === 'priority') { counts.tier++; continue; }
