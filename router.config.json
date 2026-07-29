@@ -1,0 +1,34 @@
+{
+  "tokenSafetyMargin": 0.15,
+  "imageTokenAllowance": 1200,
+  "documentTokenAllowance": 3000,
+  "maxAttempts": 3,
+  "requestDeadlineMs": 120000,
+  "refreshAbortDropRatio": 0.05,
+  "profiles": {
+    "default": {
+      "expectedOutputTokens": 1500,
+      "allowFlex": false,
+      "deny": [],
+      "minInputPerMillion": 0
+    },
+    "coding": {
+      "expectedOutputTokens": 4000,
+      "requires": ["tool_calling", "reasoning"],
+      "allowFlex": false,
+      "deny": [],
+      "minInputPerMillion": 0.15
+    },
+    "vision": {
+      "expectedOutputTokens": 1000,
+      "requires": ["image_input"],
+      "allowFlex": false,
+      "minInputPerMillion": 0
+    },
+    "bulk": {
+      "expectedOutputTokens": 800,
+      "allowFlex": false,
+      "minInputPerMillion": 0
+    }
+  }
+}
