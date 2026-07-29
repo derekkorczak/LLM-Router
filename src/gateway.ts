@@ -1,6 +1,25 @@
 import type { Logger } from 'pino';
 import type { RouteEntry } from './catalog.js';
 
+function parseSSEResponse(raw: string): any {
+  const lines = raw.split('\n');
+  let lastData: any = null;
+
+  for (const line of lines) {
+    if (line.startsWith('data: ')) {
+      const json = line.slice(6).trim();
+      if (json === '[DONE]') continue;
+      try {
+        lastData = JSON.parse(json);
+      } catch {
+        // skip unparseable chunks
+      }
+    }
+  }
+
+  return lastData || {};
+}
+
 export interface ExecutionResult {
   model: string;
   vendor: string;
@@ -57,7 +76,11 @@ export class GatewayClient {
       delete requestBody.top_p;
     }
 
-  const url = 'https://api-gateway.merge.dev/v1/openai/chat/completions';
+    if (requestBody.stream !== true) {
+      requestBody.stream = false;
+    }
+
+    const url = 'https://api-gateway.merge.dev/v1/openai/chat/completions';
 
     const res = await fetch(url, {
       method: 'POST',
@@ -81,7 +104,16 @@ export class GatewayClient {
       );
     }
 
-    const data: any = await res.json();
+    const contentType = res.headers.get('content-type') || '';
+    const rawText = await res.text();
+
+    let data: any;
+
+    if (contentType.includes('text/event-stream') || rawText.trimStart().startsWith('data:')) {
+      data = parseSSEResponse(rawText);
+    } else {
+      data = JSON.parse(rawText);
+    }
 
     const choice = data.choices?.[0];
     const content = choice?.message?.content ?? '';
