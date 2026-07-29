@@ -37,6 +37,8 @@ export function registerRoutes(
     const body = request.body as any;
     const model = body.model;
 
+    logger.info({ model, stream: body.stream, tools: !!body.tools }, 'Incoming chat completion request');
+
     if (!model || !model.startsWith('auto')) {
       return forwardToMerge(body, gatewayClient, logger, reply);
     }
@@ -173,6 +175,31 @@ export function registerRoutes(
       });
     }
 
+    if (body.stream === true && finalResult.streamingResponse) {
+      reply.header('Content-Type', 'text/event-stream');
+      reply.header('Cache-Control', 'no-cache');
+      reply.header('Connection', 'keep-alive');
+      reply.header('X-Router-Model', finalResult.model);
+      reply.header('X-Router-Vendor', finalResult.vendor);
+      reply.header('X-Router-Tier', finalResult.tier);
+      reply.header('X-Router-Estimated-Cost', finalResult.headers['X-Router-Estimated-Cost']);
+      reply.header('X-Router-Actual-Cost', finalResult.headers['X-Router-Actual-Cost']);
+      reply.header('X-Router-Attempts', finalResult.headers['X-Router-Attempts']);
+      reply.header('X-Router-Candidates-Considered', finalResult.headers['X-Router-Candidates-Considered']);
+      reply.header('X-Router-Catalog-Age-Seconds', finalResult.headers['X-Router-Catalog-Age-Seconds']);
+
+      logger.info({
+        profile: model,
+        attempts,
+        servedModel: finalResult.model,
+        servedVendor: finalResult.vendor,
+        servedTier: finalResult.tier,
+        streaming: true,
+      }, 'Request served (streaming)');
+
+      return reply.send(finalResult.streamingResponse);
+    }
+
     for (const [key, value] of Object.entries(finalResult.headers)) {
       reply.header(key, value as string);
     }
@@ -183,20 +210,21 @@ export function registerRoutes(
       servedModel: finalResult.model,
       servedVendor: finalResult.vendor,
       servedTier: finalResult.tier,
+      streaming: false,
     }, 'Request served');
 
     return {
       id: `chatcmpl-${Date.now()}`,
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
-      model,
+      model: finalResult.model,
       choices: [{
         index: 0,
         message: {
           role: 'assistant',
           content: finalResult.output,
         },
-        finish_reason: 'stop',
+        finish_reason: finalResult.finishReason,
       }],
       usage: {
         prompt_tokens: finalResult.usage.inputTokens,
@@ -322,11 +350,11 @@ async function forwardToMerge(
       id: `chatcmpl-${Date.now()}`,
       object: 'chat.completion',
       created: Math.floor(Date.now() / 1000),
-      model: body.model,
+      model: result.model,
       choices: [{
         index: 0,
         message: { role: 'assistant', content: result.output },
-        finish_reason: 'stop',
+        finish_reason: result.finishReason,
       }],
       usage: {
         prompt_tokens: result.usage.inputTokens,

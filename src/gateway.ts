@@ -20,11 +20,23 @@ function parseSSEResponse(raw: string): any {
   return lastData || {};
 }
 
+function extractContent(data: any): string {
+  const choice = data.choices?.[0];
+  if (!choice) return '';
+
+  if (choice.message?.content != null) return choice.message.content;
+  if (choice.delta?.content != null) return choice.delta.content;
+
+  return '';
+}
+
 export interface ExecutionResult {
   model: string;
   vendor: string;
   tier: string;
   output: string;
+  finishReason: string;
+  streamingResponse: string | null;
   usage: {
     inputTokens: number;
     outputTokens: number;
@@ -111,18 +123,31 @@ export class GatewayClient {
 
     if (contentType.includes('text/event-stream') || rawText.trimStart().startsWith('data:')) {
       data = parseSSEResponse(rawText);
-    } else {
-      data = JSON.parse(rawText);
+      return {
+        model: data.model || candidate.model,
+        vendor: candidate.vendor,
+        tier: candidate.tier,
+        output: extractContent(data),
+        finishReason: data.choices?.[0]?.finish_reason ?? 'stop',
+        streamingResponse: rawText,
+        usage: {
+          inputTokens: data.usage?.prompt_tokens ?? 0,
+          outputTokens: data.usage?.completion_tokens ?? 0,
+          totalTokens: data.usage?.total_tokens ?? 0,
+          cost: data.usage?.cost ?? null,
+        },
+      };
     }
 
-    const choice = data.choices?.[0];
-    const content = choice?.message?.content ?? '';
+    data = JSON.parse(rawText);
 
     return {
       model: data.model || candidate.model,
       vendor: candidate.vendor,
       tier: candidate.tier,
-      output: content,
+      output: extractContent(data),
+      finishReason: data.choices?.[0]?.finish_reason ?? 'stop',
+      streamingResponse: null,
       usage: {
         inputTokens: data.usage?.prompt_tokens ?? 0,
         outputTokens: data.usage?.completion_tokens ?? 0,
