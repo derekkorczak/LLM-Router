@@ -1,0 +1,31 @@
+version: "3.8"
+services:
+  router:
+    build: .
+    container_name: llm-router
+    network_mode: host  # Bind to 127.0.0.1 only
+    volumes:
+      - ./catalog:/app/catalog
+    environment:
+      - MERGE_API_KEY=${MERGE_API_KEY}
+      - BIND_HOST=127.0.0.1
+      - PORT=3000
+      - CATALOG_DIR=/app/catalog
+    restart: unless-stopped
+    command: ["npm", "run", "start"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      - ready
+
+ready:
+  image: alpine/ping
+  command: ping -c 1 127.0.0.1
+  network_mode: host
+  stop_conditions:
+    - network-offline
+    - exit
