@@ -2,11 +2,14 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy package files first
-COPY package*.json ./
+# Copy package files
+COPY package.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (use npm install since we don't have package-lock.json)
+RUN npm install --production
+
+# Install TypeScript for build
+RUN npm install --save-dev typescript
 
 # Copy source code
 COPY . .
@@ -26,6 +29,9 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Copy built files
 COPY --from=builder /app/dist ./dist
+
+# Copy config file
+COPY --from=builder /app/router.config.json ./router.config.json
 
 # Create catalog directory
 RUN mkdir -p /app/catalog
