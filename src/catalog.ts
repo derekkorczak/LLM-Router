@@ -116,6 +116,12 @@ export class CatalogStore {
       const raw = JSON.parse(readFileSync(latestPath, 'utf-8'));
       if (!raw.routes || !Array.isArray(raw.routes)) return false;
 
+      const version = raw.schemaVersion ?? 0;
+      if (version < 2) {
+        this.logger.warn({ version }, 'Catalog snapshot schema too old, discarding and will re-fetch');
+        return false;
+      }
+
       this.routes = raw.routes;
       this.fetchedAt = new Date(raw.fetchedAt);
       this.logger.info({ routeCount: this.routes.length, fetchedAt: raw.fetchedAt }, 'Loaded catalog from snapshot');
@@ -243,8 +249,16 @@ export class CatalogStore {
             supports_tool_choice: vendor.capabilities.supports_tool_choice,
             supports_structured_outputs: vendor.capabilities.supports_structured_outputs,
             supports_streaming: vendor.capabilities.streaming,
-            supports_reasoning: vendor.supports_reasoning ?? model.supports_reasoning ?? false,
-            zero_data_retention: vendor.zero_data_retention ?? model.zero_data_retention ?? false,
+            supports_reasoning:
+              (vendor.capabilities as any).supports_reasoning ??
+              (vendor as any).supports_reasoning ??
+              model.supports_reasoning ??
+              false,
+            zero_data_retention:
+              (vendor.capabilities as any).zero_data_retention ??
+              (vendor as any).zero_data_retention ??
+              model.zero_data_retention ??
+              false,
             capabilitiesInput: vendor.capabilities.input,
             capabilitiesOutput: vendor.capabilities.output,
             aliases: model.aliases || [],
@@ -258,7 +272,8 @@ export class CatalogStore {
   }
 
   private saveSnapshot(): void {
-    const snapshot: CatalogSnapshot = {
+    const snapshot = {
+      schemaVersion: 2,
       fetchedAt: this.fetchedAt.toISOString(),
       routeCount: this.routes.length,
       routes: this.routes,
