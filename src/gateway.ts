@@ -82,7 +82,7 @@ export class GatewayClient {
       );
     }
 
-    const data = await res.json();
+    const data: any = await res.json();
 
     return {
       model: data.model || candidate.model,
