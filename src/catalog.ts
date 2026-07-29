@@ -35,7 +35,7 @@ const PublicModelSchema = z.object({
   provider: z.string(),
   display_name: z.string().optional(),
   availability_status: z.enum(['available', 'deprecated']).optional(),
-  vendors: z.record(VendorSchema),
+  vendors: z.record(VendorSchema.or(z.null())),
   aliases: z.array(z.string()).optional(),
   supports_reasoning: z.boolean().optional(),
   zero_data_retention: z.boolean().optional(),
@@ -162,13 +162,20 @@ export class CatalogStore {
       const parsed = ModelsResponseSchema.safeParse(json);
 
       if (!parsed.success) {
+        if (pageCount > 0) {
+          this.logger.warn({ cursor, pageCount }, 'Page missing data array during pagination, stopping but keeping fetched pages');
+          break;
+        }
         throw new Error(`Invalid response from Merge API: page missing data array`);
       }
 
       const page = parsed.data;
       if (!Array.isArray(page.data) || page.data.length === 0) {
-        this.logger.warn({ cursor }, 'Empty page from Merge API, stopping pagination');
-        break;
+        if (pageCount > 0) {
+          this.logger.warn({ cursor, pageCount }, 'Empty page during pagination, stopping but keeping fetched pages');
+          break;
+        }
+        throw new Error(`Empty page from Merge API on first page`);
       }
 
       for (const item of page.data) {
@@ -199,6 +206,7 @@ export class CatalogStore {
       if (model.availability_status === 'deprecated') continue;
 
       for (const [vendorId, vendor] of Object.entries(model.vendors)) {
+        if (!vendor) continue;
         if (vendor.availability_status === 'deprecated') continue;
 
         const pricing = vendor.pricing;
