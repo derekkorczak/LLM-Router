@@ -9,7 +9,7 @@
     "default": {
       "expectedOutputTokens": 1500,
       "allowFlex": false,
-      "deny": [],
+      "deny": ["bytedance/*", "baidu/*", "zhipuai/*", "yoco/*", "zai/*", "moonshot/*", "01ai/*", "sensecore/*", "alibaba/*"],
       "minInputPerMillion": 0.10,
       "minOutputPerMillion": 0.01
     },
