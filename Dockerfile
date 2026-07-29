@@ -1,10 +1,14 @@
 # Stage 1: Build Environment
-FROM node:20-alpine AS builder
+FROM node:20 AS builder
 WORKDIR /app
-RUN apk add --no-cache curl && curl -sL https://unpkg.com/npm@latest/dist/cnpm/bin/cnpm.js -o /usr/local/bin/npm && chmod +x /usr/local/bin/npm && npm install --only=production && echo "Dependencies installed" && COPY package.json . && COPY package-lock.json . && COPY . . && npm run build
+COPY package.json .
+COPY package-lock.json .
+RUN npm install --only=production --verbose
+COPY . .
+RUN npm run build
 
 # Stage 2: Runtime Environment
-FROM node:20-alpine
+FROM node:20
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
