@@ -28,6 +28,8 @@ const VendorSchema = z.object({
   }).passthrough(),
   pricing: VendorPricingSchema,
   launch_date: z.string().optional(),
+  supports_reasoning: z.boolean().optional(),
+  zero_data_retention: z.boolean().optional(),
 }).passthrough();
 
 const PublicModelSchema = z.object({
@@ -241,8 +243,8 @@ export class CatalogStore {
             supports_tool_choice: vendor.capabilities.supports_tool_choice,
             supports_structured_outputs: vendor.capabilities.supports_structured_outputs,
             supports_streaming: vendor.capabilities.streaming,
-            supports_reasoning: model.supports_reasoning ?? false,
-            zero_data_retention: model.zero_data_retention ?? false,
+            supports_reasoning: vendor.supports_reasoning ?? model.supports_reasoning ?? false,
+            zero_data_retention: vendor.zero_data_retention ?? model.zero_data_retention ?? false,
             capabilitiesInput: vendor.capabilities.input,
             capabilitiesOutput: vendor.capabilities.output,
             aliases: model.aliases || [],
