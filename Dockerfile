@@ -37,4 +37,6 @@ COPY --from=builder /app/router.config.json ./router.config.json
 RUN mkdir -p /app/catalog
 
 EXPOSE 3000
+
+# Run the compiled JavaScript directly with node (no npm needed)
 CMD ["node", "dist/index.js"]
