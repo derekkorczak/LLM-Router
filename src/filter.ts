@@ -37,9 +37,22 @@ export function inferRequirements(body: any, profile: Profile): Requirements {
     toolChoice: false,
     structuredOutputs: false,
     streaming: false,
-    reasoning: profile.requires.includes('reasoning'),
-    zdr: profile.requires.includes('zdr'),
+    reasoning: false,
+    zdr: false,
   };
+
+  for (const r of profile.requires) {
+    switch (r) {
+      case 'reasoning': req.reasoning = true; break;
+      case 'zdr': req.zdr = true; break;
+      case 'tool_calling': req.toolCalling = true; break;
+      case 'tool_choice': req.toolChoice = true; break;
+      case 'structured_outputs': req.structuredOutputs = true; break;
+      case 'streaming': req.streaming = true; break;
+      case 'image_input': req.imageInput = true; break;
+      case 'document_input': req.documentInput = true; break;
+    }
+  }
 
   const messages = body.messages || [];
 
@@ -80,10 +93,6 @@ export function inferRequirements(body: any, profile: Profile): Requirements {
 
   if (body.stream === true) {
     req.streaming = true;
-  }
-
-  if (profile.requires.includes('image_input')) {
-    req.imageInput = true;
   }
 
   return req;
