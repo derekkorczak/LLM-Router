@@ -1,59 +1,74 @@
 import fastify from 'fastify';
-import fastifyOpenApi from '@fastify/openapi';
-import { GatewayClient } from './utils/GatewayClient.js';
-import { CatalogStore } from './models/Catalog.js';
-import { RouterConfig } from './utils/RouterConfig.js';
-import { RouterEndpoint } from './utils/RouterEndpoint.js';
 import pino from 'pino';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Initialize logger
 const logger = pino({
-  level: 'info',
+  level: process.env.LOG_LEVEL || 'info',
 });
-
-// Load config
-const config = JSON.parse(readFileSync(join(__dirname, '../router.config.json'), 'utf-8'));
 
 // Initialize Fastify
 const app = fastify({
   logger: logger,
 });
 
-// Register OpenAPI
-app.register(fastifyOpenApi, {
-  openapi: {
-    info: {
-      title: 'LLM Router API',
-      version: '1.0.0',
-    },
-  },
+// Health check endpoints
+app.get('/healthz', async (request, reply) => {
+  return { status: 'ok' };
 });
 
-// Initialize Catalog Store
-const catalogStore = new CatalogStore(config, logger);
+app.get('/readyz', async (request, reply) => {
+  return { status: 'ready' };
+});
 
-// Initialize Gateway Client
-const gatewayClient = new GatewayClient(config, logger);
+// Placeholder for chat completions endpoint
+app.post('/v1/chat/completions', async (request, reply) => {
+  return {
+    id: 'chatcmpl-placeholder',
+    object: 'chat.completion',
+    created: Date.now(),
+    model: 'placeholder',
+    choices: [{
+      index: 0,
+      message: {
+        role: 'assistant',
+        content: 'Router is running but not fully configured yet'
+      },
+      finish_reason: 'stop'
+    }]
+  };
+});
 
-// Initialize Router Endpoint
-const routerEndpoint = new RouterEndpoint(
-  app,
-  catalogStore,
-  gatewayClient,
-  config,
-  logger
-);
+// Get models endpoint
+app.get('/v1/models', async (request, reply) => {
+  return {
+    object: 'list',
+    data: [
+      { id: 'auto', object: 'model' },
+      { id: 'auto:coding', object: 'model' },
+      { id: 'auto:vision', object: 'model' },
+      { id: 'auto:bulk', object: 'model' }
+    ]
+  };
+});
 
 // Start the server
-app.listen({
-  host: process.env.BIND_HOST || '127.0.0.1',
-  port: process.env.PORT || 3000,
-}, (err) => {
-  if (err) {
-    logger.error('Failed to start server', err);
+const start = async () => {
+  try {
+    const host = process.env.BIND_HOST || '0.0.0.0';
+    const port = parseInt(process.env.PORT || '3000');
+    
+    await app.listen({ host, port });
+    logger.info(`Server running on ${host}:${port}`);
+  } catch (err) {
+    logger.error(err);
     process.exit(1);
   }
-  logger.info(`Server running on ${process.env.BIND_HOST || '127.0.0.1'}:${process.env.PORT || 3000}`);
-});
+};
+
+start();
