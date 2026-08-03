@@ -202,6 +202,9 @@ export function registerRoutes(
         servedModel: finalResult.model,
         servedVendor: finalResult.vendor,
         servedTier: finalResult.tier,
+        outputLength: finalResult.output.length,
+        finishReason: finalResult.finishReason,
+        toolCalls: finalResult.toolCalls ? `${finalResult.toolCalls.length} calls` : 'none',
         streaming: true,
       }, 'Request served (streaming)');
 
@@ -319,6 +322,8 @@ function resolveProfile(model: string, config: Config): Profile | null {
   if (model.startsWith('auto:')) {
     const key = model.slice(5);
     if (key === 'default') return config.profiles['default'] || null;
+    // Map sub-profiles: auto:coding_hermes → coding_hermes, etc.
+    if (key === 'coding_hermes') return config.profiles['coding_hermes'] || null;
     return config.profiles[key] || null;
   }
 
