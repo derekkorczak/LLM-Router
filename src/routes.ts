@@ -148,7 +148,15 @@ export function registerRoutes(
             candidate: `${candidate.model}@${candidate.vendor}`,
             statusCode: err.statusCode,
             retryable: err.retryable,
+            skipCandidate: err.skipCandidate,
           }, 'Gateway execution failed');
+
+          if (err.skipCandidate) {
+            // Hard model-incapability error (e.g. "Only one tool call supported").
+            // Skip this candidate and try the next one.
+            lastError = err;
+            continue;
+          }
 
           if (!err.retryable) {
             return reply.code(502).send({ error: err.message });

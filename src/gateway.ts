@@ -30,11 +30,22 @@ function extractContent(data: any): string {
   return '';
 }
 
+function extractToolCalls(data: any): any[] | undefined {
+  const choice = data.choices?.[0];
+  if (!choice) return undefined;
+
+  if (choice.message?.tool_calls != null) return choice.message.tool_calls;
+  if (choice.delta?.tool_calls != null) return choice.delta.tool_calls;
+
+  return undefined;
+}
+
 export interface ExecutionResult {
   model: string;
   vendor: string;
   tier: string;
   output: string;
+  toolCalls: any[] | undefined;
   finishReason: string;
   streamingResponse: string | null;
   usage: {
@@ -50,6 +61,7 @@ export class GatewayError extends Error {
     message: string,
     public statusCode: number | null,
     public retryable: boolean,
+    public skipCandidate: boolean = false,
     public stripParams: boolean = false,
   ) {
     super(message);
@@ -111,8 +123,9 @@ export class GatewayClient {
       throw new GatewayError(
         `Merge API ${res.status}: ${errorBody.slice(0, 200)}`,
         res.status,
-        retryable,
-        stripParams,
+        this.isRetryable(res.status, errorBody),
+        this.isSkipCandidate(res.status, errorBody),
+        this.shouldStripParams(res.status, errorBody),
       );
     }
 
@@ -128,6 +141,7 @@ export class GatewayClient {
         vendor: candidate.vendor,
         tier: candidate.tier,
         output: extractContent(data),
+        toolCalls: extractToolCalls(data),
         finishReason: data.choices?.[0]?.finish_reason ?? 'stop',
         streamingResponse: rawText,
         usage: {
@@ -146,6 +160,7 @@ export class GatewayClient {
       vendor: candidate.vendor,
       tier: candidate.tier,
       output: extractContent(data),
+      toolCalls: extractToolCalls(data),
       finishReason: data.choices?.[0]?.finish_reason ?? 'stop',
       streamingResponse: null,
       usage: {
@@ -165,9 +180,21 @@ export class GatewayClient {
       if (lower.includes('temperature') || lower.includes('top_p')) return true;
       if (lower.includes('unsupported') || lower.includes('not supported')) return true;
       if (lower.includes('capability') || lower.includes('feature')) return true;
+      if (lower.includes('tool_call') || lower.includes('parameter')) return true;
     }
     if (status === 401 || status === 403) return false;
     return false;
+  }
+
+  private isSkipCandidate(status: number, body: string): boolean {
+    if (status !== 400) return false;
+    const lower = body.toLowerCase();
+    // Hard model-incapability errors — retry the next candidate, not this one.
+    return lower.includes('only') && (
+      lower.includes('tool_call') ||
+      lower.includes('capability') ||
+      lower.includes('feature')
+    );
   }
 
   private shouldStripParams(status: number, body: string): boolean {
