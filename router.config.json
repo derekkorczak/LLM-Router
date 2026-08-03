@@ -40,7 +40,7 @@
       "expectedOutputTokens": 4000,
       "requires": ["tool_calling"],
       "allowFlex": false,
-      "deny": [],
+      "deny": ["qwen/qwen3.5-4b"],
       "minInputPerMillion": 0,
       "minOutputPerMillion": 0.01
     }
