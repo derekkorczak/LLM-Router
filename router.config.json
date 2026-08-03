@@ -38,10 +38,10 @@
     },
     "coding_hermes": {
       "expectedOutputTokens": 4000,
-      "requires": ["tool_calling"],
+      "requires": [],
       "allowFlex": false,
       "deny": [],
-      "minInputPerMillion": 0.15,
+      "minInputPerMillion": 0,
       "minOutputPerMillion": 0.01
     }
   }
