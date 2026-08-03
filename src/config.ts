@@ -5,6 +5,7 @@ const ProfileSchema = z.object({
   expectedOutputTokens: z.number().default(1500),
   allowFlex: z.boolean().default(false),
   deny: z.array(z.string()).default([]),
+  catalogDeny: z.array(z.string()).default([]),
   minInputPerMillion: z.number().default(0),
   minOutputPerMillion: z.number().default(0),
   requires: z.array(z.string()).default([]),

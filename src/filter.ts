@@ -163,6 +163,11 @@ export function filterAndRank(
       if (denied) { counts.denyGlob++; continue; }
     }
 
+    // catalogDeny: filter routes by their catalog capability flags (not name patterns)
+    if (profile.catalogDeny.includes('reasoning') && route.supports_reasoning) {
+      counts.capability++; continue;
+    }
+
     if (profile.minInputPerMillion > 0 && route.inputPerMillion < profile.minInputPerMillion) {
       counts.priceFloorInput++; continue;
     }
