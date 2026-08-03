@@ -4,6 +4,10 @@ import type { RouteEntry } from './catalog.js';
 function parseSSEResponse(raw: string): any {
   const lines = raw.split('\n');
   let lastData: any = null;
+  // Accumulate tool_calls and arguments across chunks — tool call args can be
+  // split across multiple SSE chunks and the final chunk often has
+  // delta.tool_calls=null with only finish_reason set.
+  const accumulatedToolCalls: Map<number, any> = new Map();
 
   for (const line of lines) {
     if (line.startsWith('data: ')) {
@@ -11,10 +15,41 @@ function parseSSEResponse(raw: string): any {
       if (json === '[DONE]') continue;
       try {
         lastData = JSON.parse(json);
+        const choice = lastData?.choices?.[0];
+        if (!choice) continue;
+        const deltaTCs = choice.delta?.tool_calls;
+        if (deltaTCs == null) continue;
+        // Null means this chunk has no tool_calls delta — skip
+        // (the final chunk often carries only finish_reason)
+        for (const tc of deltaTCs) {
+          const idx = tc.index;
+          const existing = accumulatedToolCalls.get(idx);
+          if (!existing) {
+            accumulatedToolCalls.set(idx, { ...tc });
+          } else {
+            // Merge: accumulate arguments string
+            if (tc.function?.arguments != null) {
+              existing.function = existing.function || {};
+              existing.function.arguments =
+                (existing.function.arguments || '') + tc.function.arguments;
+            }
+            // Other fields (id, name) from later chunks win
+            if (tc.id) existing.id = tc.id;
+            if (tc.function?.name) existing.function.name = tc.function.name;
+          }
+        }
       } catch {
         // skip unparseable chunks
       }
     }
+  }
+
+  // Attach accumulated tool_calls to the final message so extractToolCalls finds them
+  if (lastData?.choices?.[0]?.message && accumulatedToolCalls.size > 0) {
+    const tcs = Array.from(accumulatedToolCalls.values()).sort(
+      (a, b) => a.index - b.index,
+    );
+    lastData.choices[0].message.tool_calls = tcs;
   }
 
   return lastData || {};
