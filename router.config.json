@@ -39,7 +39,7 @@
     "coding_hermes": {
       "expectedOutputTokens": 4000,
       "requires": ["tool_calling"],
-      "deny": ["openai/gpt-oss-20b", "openai/gpt-oss-120b"],
+      "deny": ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "amazon/nova-micro"],
       "catalogDeny": ["reasoning"],
       "minInputPerMillion": 0,
       "minOutputPerMillion": 0.01
