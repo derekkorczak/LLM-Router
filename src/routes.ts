@@ -224,17 +224,22 @@ export function registerRoutes(
       streaming: false,
     }, 'Request served');
 
+    const assistantMessage: Record<string, any> = {
+      role: "assistant",
+      content: finalResult.output,
+    };
+    if (finalResult.toolCalls && finalResult.toolCalls.length > 0) {
+      assistantMessage.tool_calls = finalResult.toolCalls;
+    }
+
     return {
       id: `chatcmpl-${Date.now()}`,
-      object: 'chat.completion',
+      object: "chat.completion",
       created: Math.floor(Date.now() / 1000),
       model: finalResult.model,
       choices: [{
         index: 0,
-        message: {
-          role: 'assistant',
-          content: finalResult.output,
-        },
+        message: assistantMessage,
         finish_reason: finalResult.finishReason,
       }],
       usage: {
