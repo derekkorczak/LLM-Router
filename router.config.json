@@ -39,7 +39,7 @@
     "coding_hermes": {
       "expectedOutputTokens": 4000,
       "requires": ["tool_calling"],
-      "deny": ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "amazon/nova-micro", "Qwen/Qwen3-235B-A22B-Instruct-2507-tput"],
+      "deny": ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "amazon/nova-micro", "Qwen/Qwen3-235B*", "google/gemma-4-31b-it*"],
       "catalogDeny": ["reasoning"],
       "minInputPerMillion": 0,
       "minOutputPerMillion": 0.01
